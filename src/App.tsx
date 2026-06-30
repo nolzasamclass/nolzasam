@@ -20,6 +20,7 @@ import PixyCubeStage1 from './pages/PixyCubeStage1'
 import GeometryMaster from './pages/GeometryMaster';
 import GeometryDraw from './pages/GeometryDraw';
 import PhysicsLab from './pages/PhysicsLab';
+import AdminGradeBook from './pages/AdminGradeBook';
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="/geometry-master" element={<ProtectedRoute user={user}><GeometryMaster /></ProtectedRoute>} />
           <Route path="/geometry-draw" element={<GeometryDraw />} />
           <Route path="/physics-lab" element={<PhysicsLab />} />
+          <Route path="/admin/gradebook" element={<ProtectedRoute user={user} adminOnly={true}><AdminGradeBook /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>

@@ -268,8 +268,8 @@ export default function PhysicsLab() {
     Matter.Composite.add(engine.world, worldBodies);
 
     // 6. 충돌 및 바람 이벤트 로직
-    Matter.Events.on(engine, 'collisionStart', (event) => {
-      event.pairs.forEach((pair) => {
+    Matter.Events.on(engine, 'collisionStart', (event: any) => {
+      event.pairs.forEach((pair: any) => {
         if ((pair.bodyA.label === 'ball' && pair.bodyB.label === 'target') || (pair.bodyB.label === 'ball' && pair.bodyA.label === 'target')) {
           if (!isCleared) {
             toast.success(`🎉 ${stageData.title} 클리어!`, { duration: 5000, icon: '⭐️' });
@@ -281,11 +281,11 @@ export default function PhysicsLab() {
 
     Matter.Events.on(engine, 'beforeUpdate', () => {
       const bodies = Matter.Composite.allBodies(engine.world);
-      const windZones = bodies.filter(b => b.label === 'windZone');
-      const balls = bodies.filter(b => b.label === 'ball');
+      const windZones = bodies.filter((b: any) => b.label === 'windZone');
+      const balls = bodies.filter((b: any) => b.label === 'ball');
 
-      balls.forEach(b => {
-        windZones.forEach(zone => {
+      balls.forEach((b: any) => {
+        windZones.forEach((zone: any) => {
           if (Matter.Bounds.overlaps(b.bounds, zone.bounds)) {
             // 바람 방향(zone의 각도)으로 밀어냄
             const forceX = Math.cos(zone.angle) * 0.0015;

@@ -4,9 +4,14 @@ import { useNavigate } from 'react-router-dom';
 import { collection, query, orderBy, getDocs, doc, deleteDoc, addDoc, setDoc, onSnapshot, serverTimestamp, updateDoc, writeBatch } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { signOut } from 'firebase/auth';
-import toast from 'react-hot-toast'; // 🌟 에러 해결: 예쁜 알림창 도구를 가져옵니다!
+import toast from 'react-hot-toast'; 
 
-export default function AdminDashboard({ user }: { user: any }) {
+// 🔥 타입스크립트 에러 해결: AdminDashboard가 user props를 받을 수 있도록 명시적으로 정의합니다.
+interface AdminDashboardProps {
+  user?: any;
+}
+
+export default function AdminDashboard({ user }: AdminDashboardProps) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'menus' | 'contents' | 'users' | 'settings'>('menus'); 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -21,17 +26,17 @@ export default function AdminDashboard({ user }: { user: any }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // ==========================================
-  // 2. 🌟 과목/콘텐츠 관리 상태 
+  // 2. 과목/콘텐츠 관리 상태 
   // ==========================================
   const [menus, setMenus] = useState<any[]>([]);
   const [contents, setContents] = useState<any[]>([]);
   const [newMenuName, setNewMenuName] = useState('');
   
-  // 수정 중인 메뉴의 상태 추적
   const [editingMenuId, setEditingMenuId] = useState<string | null>(null);
   const [editingMenuName, setEditingMenuName] = useState('');
 
   const [contentForm, setContentForm] = useState({ menuId: '', title: '', desc: '', url: '' }); 
+  const [editingContentId, setEditingContentId] = useState<string | null>(null);
 
   // ==========================================
   // 3. 디자인 설정 상태
@@ -57,7 +62,6 @@ export default function AdminDashboard({ user }: { user: any }) {
       const menuSnap = await getDocs(collection(db, 'site_menus'));
       const fetchedMenus = menuSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       
-      // 순서(order) 필드가 있으면 그걸 우선하고, 없으면 생성 시간으로 정렬
       fetchedMenus.sort((a: any, b: any) => {
         const orderA = a.order !== undefined ? a.order : (a.createdAt?.seconds || 0);
         const orderB = b.order !== undefined ? b.order : (b.createdAt?.seconds || 0);
@@ -123,9 +127,6 @@ export default function AdminDashboard({ user }: { user: any }) {
     catch (e) { toast.error("삭제 실패"); }
   };
 
-  // ----------------------------------------------------
-  // 과목 메뉴 강력 관리
-  // ----------------------------------------------------
   const handleAddMenu = async () => {
     if (!newMenuName.trim()) return toast.error("메뉴 이름을 입력해주세요.");
     try { 
@@ -169,30 +170,69 @@ export default function AdminDashboard({ user }: { user: any }) {
     const newMenus = [...menus];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     [newMenus[index], newMenus[targetIndex]] = [newMenus[targetIndex], newMenus[index]];
-    
     setMenus(newMenus);
 
     try {
       const batch = writeBatch(db);
-      newMenus.forEach((menu, i) => {
-        batch.update(doc(db, 'site_menus', menu.id), { order: i });
-      });
+      newMenus.forEach((menu, i) => { batch.update(doc(db, 'site_menus', menu.id), { order: i }); });
       await batch.commit();
     } catch (err) {
-      toast.error("순서 변경 저장에 실패했습니다.");
-      fetchSiteData();
+      toast.error("순서 변경 저장에 실패했습니다."); fetchSiteData();
     }
   };
 
-  const handleAddContent = async () => {
+  // 🔥 하위 콘텐츠 저장 및 수정 통합 로직
+  const handleSaveContent = async () => {
     if (!contentForm.menuId || !contentForm.title || !contentForm.url) return toast.error("메뉴 분류, 콘텐츠 제목, 실행 주소(URL)는 필수 입력 사항입니다.");
-    try { await addDoc(collection(db, 'site_contents'), { ...contentForm, createdAt: serverTimestamp() }); setContentForm({ menuId: '', title: '', desc: '', url: '' }); fetchSiteData(); toast.success("새로운 콘텐츠가 지정 카테고리에 할당되었습니다!"); } 
-    catch (err) { toast.error("콘텐츠 연동 실패"); }
+    try { 
+      if (editingContentId) {
+        // 기존 콘텐츠 수정
+        await updateDoc(doc(db, 'site_contents', editingContentId), {
+          menuId: contentForm.menuId,
+          title: contentForm.title,
+          desc: contentForm.desc,
+          url: contentForm.url
+        });
+        toast.success("콘텐츠 정보가 성공적으로 수정되었습니다!");
+      } else {
+        // 새 콘텐츠 추가
+        await addDoc(collection(db, 'site_contents'), { ...contentForm, createdAt: serverTimestamp() }); 
+        toast.success("새로운 콘텐츠가 지정 카테고리에 할당되었습니다!"); 
+      }
+      // 저장 후 폼 초기화
+      setContentForm({ menuId: '', title: '', desc: '', url: '' }); 
+      setEditingContentId(null);
+      fetchSiteData(); 
+    } 
+    catch (err) { toast.error("저장 실패"); }
+  };
+
+  // 🔥 콘텐츠 수정을 위해 클릭했을 때 폼 채우기
+  const handleEditContentStart = (content: any) => {
+    setEditingContentId(content.id);
+    setContentForm({
+      menuId: content.menuId || '',
+      title: content.title || '',
+      desc: content.desc || '',
+      url: content.url || ''
+    });
+  };
+
+  // 🔥 콘텐츠 수정 취소
+  const handleCancelContentEdit = () => {
+    setEditingContentId(null);
+    setContentForm({ menuId: '', title: '', desc: '', url: '' });
   };
 
   const handleDeleteContent = async (id: string) => {
     if (!window.confirm("이 콘텐츠를 삭제하시겠습니까?")) return;
-    try { await deleteDoc(doc(db, 'site_contents', id)); fetchSiteData(); } 
+    try { 
+      await deleteDoc(doc(db, 'site_contents', id)); 
+      // 만약 방금 지운 콘텐츠를 수정 중이었다면 수정 모드도 해제
+      if (editingContentId === id) handleCancelContentEdit();
+      fetchSiteData(); 
+      toast.success("삭제 완료");
+    } 
     catch (err) { toast.error("삭제 실패"); }
   };
 
@@ -301,14 +341,16 @@ export default function AdminDashboard({ user }: { user: any }) {
           </div>
         )}
 
-        {/* 하위 콘텐츠 등록 */}
+        {/* 🔥 하위 콘텐츠 등록 및 수정 */}
         {activeTab === 'contents' && (
           <div className="max-w-6xl animate-in fade-in duration-300">
             <h1 className="text-2xl md:text-3xl font-black text-slate-800 mb-2">✍️ 하위 학습 콘텐츠 연동</h1>
             <p className="text-sm md:text-base text-slate-500 font-bold mb-8">개발된 학습 앱이나 퀴즈 코드 주소(URL)를 카테고리에 연결하여 버튼을 생성합니다.</p>
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
               <div className="bg-white p-6 md:p-8 rounded-3xl shadow-md border border-slate-200 h-fit">
-                <h3 className="text-lg md:text-xl font-black mb-6 text-indigo-600 border-b border-slate-100 pb-4">학습 연동 설정</h3>
+                <h3 className="text-lg md:text-xl font-black mb-6 text-indigo-600 border-b border-slate-100 pb-4">
+                  {editingContentId ? '✨ 학습 연동 정보 수정 중...' : '학습 연동 설정'}
+                </h3>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-bold text-slate-500 mb-1">소속 메뉴(과목) 선택</label>
@@ -329,16 +371,40 @@ export default function AdminDashboard({ user }: { user: any }) {
                     <label className="block text-sm font-bold text-slate-500 mb-1">학습 안내/설명</label>
                     <textarea value={contentForm.desc} onChange={e=>setContentForm({...contentForm, desc: e.target.value})} placeholder="무엇을 배우는 활동인지 간략하게 적어주세요." className="w-full p-4 rounded-xl border-2 border-slate-200 outline-none focus:border-indigo-500 h-28 resize-none font-medium" />
                   </div>
-                  <button onClick={handleAddContent} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-xl transition-all active:scale-95 text-base md:text-lg">홈 화면에 연동 버튼 생성 🚀</button>
+                  
+                  {/* 🔥 버튼 영역이 수정 상태에 따라 똑똑하게 변경됨 */}
+                  <div className="flex gap-2">
+                    <button onClick={handleSaveContent} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-xl transition-all active:scale-95 text-base md:text-lg shadow-sm">
+                      {editingContentId ? '수정 사항 저장 💾' : '홈 화면에 연동 버튼 생성 🚀'}
+                    </button>
+                    {editingContentId && (
+                      <button onClick={handleCancelContentEdit} className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-black py-4 px-6 rounded-xl transition-all active:scale-95 text-base md:text-lg">
+                        취소
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
               <div className="bg-slate-50 p-4 md:p-6 rounded-3xl border border-slate-200 overflow-y-auto max-h-[500px] md:max-h-[750px] custom-scrollbar">
-                <h3 className="text-base md:text-lg font-black text-slate-700 mb-4">연동된 학습 콘텐츠 목록</h3>
+                <h3 className="text-base md:text-lg font-black text-slate-700 mb-4 flex justify-between items-center">
+                  <span>연동된 학습 콘텐츠 목록</span>
+                  <span className="text-xs text-indigo-500 font-bold bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">항목을 클릭하면 수정할 수 있습니다</span>
+                </h3>
                 <div className="space-y-4">
                   {contents.map(c => (
-                    <div key={c.id} className="bg-white p-4 md:p-5 rounded-2xl border border-slate-200 relative group flex flex-col md:block">
-                      <button onClick={()=>handleDeleteContent(c.id)} className="static md:absolute mt-2 md:mt-0 md:top-4 md:right-4 text-xs font-bold bg-rose-50 text-rose-500 px-3 md:px-2.5 py-2 md:py-1.5 rounded-lg md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:bg-rose-500 hover:text-white w-full md:w-auto text-center order-last md:order-none">연결 해제</button>
+                    <div 
+                      key={c.id} 
+                      onClick={() => handleEditContentStart(c)} // 🔥 카드를 클릭하면 폼으로 데이터 전송
+                      className={`bg-white p-4 md:p-5 rounded-2xl border relative group flex flex-col md:block cursor-pointer transition-all ${editingContentId === c.id ? 'border-indigo-500 ring-2 ring-indigo-200 shadow-md' : 'border-slate-200 hover:border-indigo-300 hover:shadow-sm'}`}
+                    >
+                      {/* 🔥 버튼을 누를 때 카드가 클릭되는 이벤트 꼬임을 방지(e.stopPropagation) */}
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleDeleteContent(c.id); }} 
+                        className="static md:absolute mt-2 md:mt-0 md:top-4 md:right-4 text-xs font-bold bg-rose-50 text-rose-500 px-3 md:px-2.5 py-2 md:py-1.5 rounded-lg md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:bg-rose-500 hover:text-white w-full md:w-auto text-center order-last md:order-none"
+                      >
+                        연결 해제
+                      </button>
                       <div>
                         <span className="text-[10px] font-black bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded border border-indigo-100">{menus.find(m=>m.id === c.menuId)?.name || '미분류'}</span>
                         <h4 className="text-sm md:text-base font-black text-slate-800 mt-1">{c.title}</h4>

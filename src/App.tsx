@@ -19,6 +19,7 @@ import AdminAssessment from './pages/AdminAssessment';
 import PixyCubeStage1 from './pages/PixyCubeStage1'
 import GeometryMaster from './pages/GeometryMaster';
 import GeometryDraw from './pages/GeometryDraw';
+import PhysicsLab from './pages/PhysicsLab';
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -60,6 +61,7 @@ export default function App() {
           <Route path="/pixy-stage1" element={<ProtectedRoute user={user}><PixyCubeStage1 /></ProtectedRoute>} />
           <Route path="/geometry-master" element={<ProtectedRoute user={user}><GeometryMaster /></ProtectedRoute>} />
           <Route path="/geometry-draw" element={<GeometryDraw />} />
+          <Route path="/physics-lab" element={<PhysicsLab />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>

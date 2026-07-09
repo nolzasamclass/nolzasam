@@ -5,7 +5,8 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
-type Role = '학생' | '학부모' | '교사';
+type Role = '학급 학생' | '일반 학생' | '학부모';
+
 const SEOUL_SCHOOLS = [
   "서울가인초등학교", "서울계상초등학교", "서울공릉초등학교", "서울공연초등학교", "서울광운초등학교",
   "서울노원초등학교", "서울노일초등학교", "서울누원초등학교", "서울당현초등학교", "서울도봉초등학교",
@@ -23,37 +24,53 @@ const SEOUL_SCHOOLS = [
 
 export default function Signup() {
   const navigate = useNavigate();
-  const [role, setRole] = useState<Role>('학생');
+  const [role, setRole] = useState<Role>('학급 학생');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   
-  // 학교 검색 관련 상태
   const [school, setSchool] = useState('');
   const [isSearchingSchool, setIsSearchingSchool] = useState(false);
   const [schoolSearchTerm, setSchoolSearchTerm] = useState('');
   
-  // 학년, 반 분리
   const [grade, setGrade] = useState('');
   const [classNum, setClassNum] = useState('');
-  
   const [childName, setChildName] = useState('');
+  
+  // 🌟 새롭게 추가된 상태 변수들
+  const [birthDate, setBirthDate] = useState('');
+  const [studentPhone, setStudentPhone] = useState(''); // 선택
+  const [parentNameForm, setParentNameForm] = useState('');
+  const [parentPhone, setParentPhone] = useState('');
+  const [privacyConsent, setPrivacyConsent] = useState(false);
+
   const [loading, setLoading] = useState(false);
 
-  // 검색어에 따른 학교 필터링
   const filteredSchools = SEOUL_SCHOOLS.filter(s => s.includes(schoolSearchTerm));
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // 기본 필수 항목 검사
     if (!username.trim() || !password.trim() || !name.trim() || !school.trim()) {
       return alert("필수 입력란을 모두 채워주세요.");
     }
     if (password.length !== 4 || isNaN(Number(password))) {
       return alert("비밀번호는 반드시 숫자 4자리여야 합니다.");
     }
-    if ((role === '학생' || role === '학부모') && (!grade || !classNum)) {
-      return alert("학년과 반을 선택해 주세요.");
+    if (!privacyConsent) {
+      return alert("개인정보 수집 및 이용에 동의해야 가입할 수 있습니다.");
     }
+
+    // 학생 필수 항목 검사
+    if (role.includes('학생')) {
+      if (!grade || !classNum) return alert("학년과 반을 선택해 주세요.");
+      if (!birthDate.trim()) return alert("학생의 생년월일을 입력해 주세요.");
+      if (!parentNameForm.trim()) return alert("학부모 성명을 입력해 주세요.");
+      if (!parentPhone.trim()) return alert("학부모 전화번호를 입력해 주세요.");
+    }
+
+    // 학부모 필수 항목 검사
     if (role === '학부모' && !childName.trim()) {
       return alert("자녀 이름을 입력해 주세요.");
     }
@@ -70,9 +87,15 @@ export default function Signup() {
         name: name.trim(),
         role,
         school: school.trim(),
-        grade: role !== '교사' ? Number(grade) : null,
-        classNum: role !== '교사' ? Number(classNum) : null,
+        grade: role.includes('학생') ? Number(grade) : null,
+        classNum: role.includes('학생') ? Number(classNum) : null,
         childName: role === '학부모' ? childName.trim() : null,
+        // 🌟 DB에 새로 저장되는 정보
+        birthDate: role.includes('학생') ? birthDate.trim() : null,
+        studentPhone: role.includes('학생') ? studentPhone.trim() : null,
+        parentName: role.includes('학생') ? parentNameForm.trim() : null,
+        parentPhone: role.includes('학생') ? parentPhone.trim() : null,
+        
         plainPassword: password, 
         approved: false, 
         createdAt: serverTimestamp()
@@ -88,7 +111,7 @@ export default function Signup() {
         timestamp: serverTimestamp()
       });
 
-      alert("회원가입 신청이 완료되었습니다! 관리자 승인 완료 후 이용 가능합니다.");
+      alert("회원가입 신청이 완료되었습니다! 선생님의 승인 후 이용 가능합니다.");
       await auth.signOut(); 
       navigate('/login');
     } catch (error: any) {
@@ -105,11 +128,11 @@ export default function Signup() {
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 py-12">
-      <form onSubmit={handleSignup} className="bg-slate-800 p-8 rounded-3xl border border-slate-700 shadow-2xl max-w-md w-full space-y-6">
+      <form onSubmit={handleSignup} className="bg-slate-800 p-8 rounded-3xl border border-slate-700 shadow-2xl max-w-lg w-full space-y-6">
         <h2 className="text-2xl font-black text-center text-indigo-400">📝 통합 가입 신청서</h2>
         
         <div className="flex bg-slate-700 p-1 rounded-xl">
-          {(['학생', '학부모', '교사'] as Role[]).map(r => (
+          {(['학급 학생', '일반 학생', '학부모'] as Role[]).map(r => (
             <button key={r} type="button" onClick={() => setRole(r)} className={`flex-1 py-2 rounded-lg text-sm font-black transition-all ${role === r ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}>
               {r}
             </button>
@@ -129,7 +152,6 @@ export default function Signup() {
 
         <div className="space-y-4 border-t border-slate-700 pt-4">
           
-          {/* 💡 학교 검색 UI */}
           <div className="relative">
             <label className="block text-xs font-bold text-slate-400 mb-1">학교명</label>
             <input 
@@ -154,7 +176,7 @@ export default function Signup() {
                   />
                   <button type="button" onClick={() => setIsSearchingSchool(false)} className="px-3 bg-slate-600 rounded-lg text-xs font-bold text-white hover:bg-slate-500">닫기</button>
                 </div>
-                <ul className="max-h-48 overflow-y-auto">
+                <ul className="max-h-48 overflow-y-auto custom-scrollbar">
                   {filteredSchools.length > 0 ? (
                     filteredSchools.map(s => (
                       <li 
@@ -173,8 +195,8 @@ export default function Signup() {
             )}
           </div>
 
-          {/* 💡 학년 / 반 드롭다운 UI */}
-          {role !== '교사' && (
+          {/* 🌟 학급/일반 학생 공통 정보 1: 학년, 반 */}
+          {role.includes('학생') && (
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-400 mb-1">학년</label>
@@ -187,8 +209,34 @@ export default function Signup() {
                 <label className="block text-xs font-bold text-slate-400 mb-1">반</label>
                 <select value={classNum} onChange={e => setClassNum(e.target.value)} className="w-full p-2.5 bg-slate-700 rounded-xl border-none font-bold text-white text-sm outline-none focus:ring-2 focus:ring-indigo-500">
                   <option value="" disabled>반 선택</option>
-                  {[1, 2, 3, 4].map(c => <option key={c} value={c}>{c}반</option>)}
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(c => <option key={c} value={c}>{c}반</option>)}
                 </select>
+              </div>
+            </div>
+          )}
+
+          {/* 🌟 학급/일반 학생 공통 정보 2: 생년월일, 연락처 */}
+          {role.includes('학생') && (
+            <div className="animate-in fade-in slide-in-from-top-2 duration-300 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">학생 생년월일 (필수)</label>
+                  <input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} className="w-full p-2.5 bg-slate-700 rounded-xl border-none font-bold text-white text-sm outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">학생 전화번호 (선택)</label>
+                  <input type="tel" value={studentPhone} onChange={e => setStudentPhone(e.target.value)} placeholder="010-0000-0000" className="w-full p-2.5 bg-slate-700 rounded-xl border-none font-bold text-white text-sm outline-none" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">학부모 성명 (필수)</label>
+                  <input type="text" value={parentNameForm} onChange={e => setParentNameForm(e.target.value)} placeholder="홍길동" className="w-full p-2.5 bg-slate-700 rounded-xl border-none font-bold text-white text-sm outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">학부모 전화번호 (필수)</label>
+                  <input type="tel" value={parentPhone} onChange={e => setParentPhone(e.target.value)} placeholder="010-0000-0000" className="w-full p-2.5 bg-slate-700 rounded-xl border-none font-bold text-white text-sm outline-none" />
+                </div>
               </div>
             </div>
           )}
@@ -206,7 +254,26 @@ export default function Signup() {
           </div>
         </div>
 
-        <button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3.5 rounded-xl transition-all shadow-md text-sm mt-6">
+        {/* 🌟 개인정보 제공 동의란 */}
+        <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 mt-4 flex items-start gap-3">
+          <input 
+            type="checkbox" 
+            id="privacy" 
+            checked={privacyConsent} 
+            onChange={e => setPrivacyConsent(e.target.value === 'on' ? e.target.checked : false)} 
+            className="mt-0.5 w-5 h-5 accent-emerald-500 rounded cursor-pointer shrink-0" 
+          />
+          <label htmlFor="privacy" className="text-xs text-slate-400 leading-relaxed cursor-pointer select-none">
+            <span className="text-emerald-400 font-bold block mb-1">[필수] 개인정보 수집 및 이용 동의</span>
+            학급 운영 및 온라인 교육 서비스 제공을 위해 위와 같은 개인정보를 수집합니다. 수집된 정보는 <strong>회원 탈퇴 시까지 보관 및 이용</strong>되며, 동의를 거부하실 경우 서비스 가입이 제한됩니다.
+          </label>
+        </div>
+
+        <button 
+          type="submit" 
+          disabled={loading || !privacyConsent} 
+          className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-black py-4 rounded-xl transition-all shadow-md text-sm mt-6"
+        >
           {loading ? "가입원서 제출 중..." : "가입 승인 요청하기 🚀"}
         </button>
 

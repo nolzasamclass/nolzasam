@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { collection, query, orderBy, getDocs, doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { signOut } from 'firebase/auth';
+import toast from 'react-hot-toast';
 
 const EDU_ICONS = ['💡', '🚀', '🔬', '🧩', '📝', '🎨', '⚙️', '🧭', '📚', '🎯'];
 
@@ -18,6 +19,14 @@ export default function Home({ user }: { user: any }) {
     color: 'indigo', 
     title: '놀자샘 스스로 학습 놀이터'
   });
+
+  // 💡 DB에서 가져온 권한 데이터를 안전하게 배열로 변환
+  const getRolesArray = (roles: any): string[] => {
+    if (!roles || roles === 'all') return [];
+    if (Array.isArray(roles)) return roles;
+    if (typeof roles === 'string') return [roles];
+    return [];
+  };
 
   useEffect(() => {
     fetchPortalData();
@@ -38,34 +47,50 @@ export default function Home({ user }: { user: any }) {
         icon: EDU_ICONS[i % EDU_ICONS.length],
         ...d.data() 
       })));
-    } catch (error) {
-      console.error("포털 연동 에러:", error);
-    }
+    } catch (error) { console.error("포털 연동 에러:", error); }
   };
 
   const handleLogout = async () => {
     await signOut(auth);
-    alert("로그아웃 되었습니다. 👋");
+    toast.success("로그아웃 되었습니다. 👋");
   };
+
+  // 🌟 핵심 필터: 다중 선택(배열) 권한 검증 로직 완벽 적용!
+  const visibleMenus = menus.filter(m => {
+    const roles = getRolesArray(m.allowedRoles);
+    
+    // 1. 전체 공개 (권한 배열이 비어있음)
+    if (roles.length === 0) return true;
+    
+    // 2. 권한이 필요한데 로그인을 안 했다면 (차단)
+    if (!user) return false;
+    
+    // 3. 관리자(선생님)는 무조건 모든 메뉴 열람 가능 (통과)
+    if (user.role === 'admin' || user.role === '교사') return true;
+    
+    // 4. 메뉴의 허용 역할 배열에 '현재 유저의 역할'이 포함되어 있는지 확인 (통과)
+    return roles.includes(user.role);
+  });
+
+  const visibleMenuIds = visibleMenus.map(m => m.id);
+  
+  const filteredContents = contents.filter(c => {
+    if (selectedMenu === 'all') return visibleMenuIds.includes(c.menuId);
+    return c.menuId === selectedMenu;
+  });
 
   const handleMenuClick = (menuId: string) => {
     setSelectedMenu(menuId);
   };
 
-  // 💡 핵심 보안 로직: 비회원은 콘텐츠 클릭 시 로그인 창으로 튕겨냅니다.
   const handleContentClick = (url: string) => {
     if (!user) {
-      alert("🔒 학습 콘텐츠를 실행하려면 먼저 로그인 또는 회원가입을 해주세요!");
+      toast.error("🔒 이 콘텐츠를 실행하려면 먼저 로그인 또는 회원가입을 해주세요!");
       navigate('/login');
       return;
     }
-    // 회원일 경우만 전체 화면으로 이동
     window.location.href = url;
   };
-
-  const filteredContents = selectedMenu === 'all' 
-    ? contents 
-    : contents.filter(c => c.menuId === selectedMenu);
 
   const getColorClass = (type: 'bg' | 'text' | 'border' | 'btn' | 'light') => {
     const c = siteSettings.color;
@@ -112,30 +137,38 @@ export default function Home({ user }: { user: any }) {
             onClick={() => handleMenuClick('all')}
             className={`py-4 font-black whitespace-nowrap transition-all ${selectedMenu === 'all' ? `border-b-4 text-slate-900 ${getColorClass('border')}` : 'border-b-4 border-transparent text-slate-400 hover:text-slate-700'}`}
           >
-            전체
+            전체 모아보기
           </button>
-          {menus.map(m => (
-            <button 
-              key={m.id}
-              onClick={() => handleMenuClick(m.id)}
-              className={`py-4 font-black whitespace-nowrap transition-all ${selectedMenu === m.id ? `border-b-4 text-slate-900 ${getColorClass('border')}` : 'border-b-4 border-transparent text-slate-400 hover:text-slate-700'}`}
-            >
-              {m.name}
-            </button>
-          ))}
+          
+          {visibleMenus.map(m => {
+            const hasRestriction = getRolesArray(m.allowedRoles).length > 0;
+            return (
+              <button 
+                key={m.id}
+                onClick={() => handleMenuClick(m.id)}
+                className={`py-4 font-black whitespace-nowrap transition-all flex items-center gap-1 ${selectedMenu === m.id ? `border-b-4 text-slate-900 ${getColorClass('border')}` : 'border-b-4 border-transparent text-slate-400 hover:text-slate-700'}`}
+              >
+                {m.name}
+                {hasRestriction && <span className="text-[9px] bg-slate-200 text-slate-500 px-1.5 rounded-sm">🔒</span>}
+              </button>
+            )
+          })}
         </div>
       </div>
 
       <main className="flex-grow max-w-6xl mx-auto w-full px-6 py-10">
         
         {filteredContents.length === 0 ? (
-          <div className="py-24 text-center bg-white rounded-3xl border border-slate-200 shadow-sm">
-            <span className="text-5xl mb-4 block opacity-30">📚</span>
-            <h2 className="text-lg font-bold text-slate-500">해당 카테고리에 할당된 학습 활동이 없습니다.</h2>
+          <div className="py-24 text-center bg-white rounded-3xl border border-slate-200 shadow-sm animate-in fade-in">
+            <span className="text-5xl mb-4 block opacity-30">📭</span>
+            <h2 className="text-lg font-bold text-slate-500">
+              {selectedMenu === 'all' 
+                ? "현재 열람 가능한 학습 콘텐츠가 없습니다." 
+                : "이 카테고리에는 아직 배포된 콘텐츠가 없습니다."}
+            </h2>
           </div>
         ) : (
           <>
-            {/* 1) 스마트 아이콘 카드 (Card) */}
             {siteSettings.layout === 'card' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
                 {filteredContents.map(c => (
@@ -150,7 +183,6 @@ export default function Home({ user }: { user: any }) {
               </div>
             )}
 
-            {/* 2) 아카데믹 단원 목차 (Index) */}
             {siteSettings.layout === 'index' && (
               <div className="space-y-3 max-w-4xl mx-auto animate-in fade-in duration-300">
                 {filteredContents.map(c => (
@@ -170,7 +202,6 @@ export default function Home({ user }: { user: any }) {
               </div>
             )}
 
-            {/* 3) 미션 뱃지 보드 (Badge) */}
             {siteSettings.layout === 'badge' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-in fade-in duration-300">
                 {filteredContents.map(c => (
@@ -187,7 +218,6 @@ export default function Home({ user }: { user: any }) {
               </div>
             )}
 
-            {/* 4) 집중 플래시보드 (Focus) */}
             {siteSettings.layout === 'focus' && (
               <div className="max-w-2xl mx-auto space-y-10 animate-in fade-in duration-300">
                 {filteredContents.map(c => (
@@ -202,7 +232,6 @@ export default function Home({ user }: { user: any }) {
           </>
         )}
       </main>
-
     </div>
   );
 }

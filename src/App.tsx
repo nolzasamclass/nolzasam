@@ -21,6 +21,8 @@ import GeometryMaster from './pages/GeometryMaster';
 import GeometryDraw from './pages/GeometryDraw';
 import PhysicsLab from './pages/PhysicsLab';
 import AdminGradeBook from './pages/AdminGradeBook';
+import CommunicationRoom from './pages/CommunicationRoom';
+import ParentCommunication from './pages/ParentCommunication';
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -64,6 +66,8 @@ export default function App() {
           <Route path="/geometry-draw" element={<GeometryDraw />} />
           <Route path="/physics-lab" element={<PhysicsLab />} />
           <Route path="/admin/gradebook" element={<ProtectedRoute user={user} adminOnly={true}><AdminGradeBook /></ProtectedRoute>} />
+          <Route path="/communication" element={<ProtectedRoute user={user}><CommunicationRoom /></ProtectedRoute>} />
+          <Route path="/parent-comm" element={<ProtectedRoute user={user}><ParentCommunication /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>

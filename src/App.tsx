@@ -23,6 +23,10 @@ import PhysicsLab from './pages/PhysicsLab';
 import AdminGradeBook from './pages/AdminGradeBook';
 import CommunicationRoom from './pages/CommunicationRoom';
 import ParentCommunication from './pages/ParentCommunication';
+import FractionQuestMap from './pages/FractionQuestMap';
+import FractionLearning from './pages/FractionLearning';
+import AdminFractionDB from './pages/AdminFractionDB';
+import MazeGame from './pages/MazeGame';
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -68,6 +72,10 @@ export default function App() {
           <Route path="/admin/gradebook" element={<ProtectedRoute user={user} adminOnly={true}><AdminGradeBook /></ProtectedRoute>} />
           <Route path="/communication" element={<ProtectedRoute user={user}><CommunicationRoom /></ProtectedRoute>} />
           <Route path="/parent-comm" element={<ProtectedRoute user={user}><ParentCommunication /></ProtectedRoute>} />
+          <Route path="/fraction-map" element={<ProtectedRoute user={user}><FractionQuestMap user={user} /></ProtectedRoute>} />
+          <Route path="/fraction-learning" element={<ProtectedRoute user={user}><FractionLearning user={user} /></ProtectedRoute>} />
+          <Route path="/admin/fraction-db" element={<ProtectedRoute user={user} adminOnly={true}><AdminFractionDB /></ProtectedRoute>} />
+          <Route path="/maze-game" element={<ProtectedRoute user={user}><MazeGame /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>

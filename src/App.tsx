@@ -27,6 +27,10 @@ import FractionQuestMap from './pages/FractionQuestMap';
 import FractionLearning from './pages/FractionLearning';
 import AdminFractionDB from './pages/AdminFractionDB';
 import MazeGame from './pages/MazeGame';
+import RelayGame from './pages/RelayGame';
+import SnailGame from './pages/SnailGame';
+import PongRelayGame from './pages/PongRelayGame';
+import GoldenBellGames from './pages/GoldenBellGame';
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -76,6 +80,10 @@ export default function App() {
           <Route path="/fraction-learning" element={<ProtectedRoute user={user}><FractionLearning user={user} /></ProtectedRoute>} />
           <Route path="/admin/fraction-db" element={<ProtectedRoute user={user} adminOnly={true}><AdminFractionDB /></ProtectedRoute>} />
           <Route path="/maze-game" element={<ProtectedRoute user={user}><MazeGame /></ProtectedRoute>} />
+          <Route path="/Relay-Game" element={<ProtectedRoute user={user}><RelayGame /></ProtectedRoute>} />
+          <Route path="/Snail-game" element={<ProtectedRoute user={user}><SnailGame /></ProtectedRoute>} />
+          <Route path="/Pong-game" element={<ProtectedRoute user={user}><PongRelayGame /></ProtectedRoute>} />
+          <Route path="/Golden-game" element={<ProtectedRoute user={user}><GoldenBellGames /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>
